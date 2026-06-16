@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Clientes | Planejamento & Gestão Patrimonial</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg-dark: #f4f6f9; --bg-card: #ffffff; --bg-input: #ffffff; 
+            --border: #e2e8f0; --border-hover: #cbd5e0; --blue-accent: #1a365d; 
+            --blue-hover: #2a4365; --green-btn: #2f855a; --text-main: #2d3748; --text-muted: #718096;     
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-dark); margin: 0; padding: 0; color: var(--text-main); }
+        
+        /* AUTH SCREEN */
+        #auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: var(--bg-dark); }
+        .auth-card { background: var(--bg-card); padding: 40px; border-radius: 18px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.05); width: 100%; max-width: 380px; text-align: center; }
+        .auth-card h1 { color: var(--blue-accent); font-size: 24px; margin-bottom: 5px; }
+        .auth-card p { color: var(--text-muted); font-size: 13px; margin-bottom: 25px; }
+        .auth-card input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: 1px solid var(--border); box-sizing: border-box; background: var(--bg-dark); }
+        .auth-card button { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; margin-bottom: 10px; }
+        .btn-login { background: var(--blue-accent); color: #fff; }
+        .btn-login:hover { background: var(--blue-hover); }
+        .btn-signup { background: transparent; color: var(--blue-accent); border: 1px solid var(--blue-accent) !important; }
+        .btn-signup:hover { background: #eef2f7; }
+        #auth-msg { font-size: 13px; color: #e53e3e; margin-top: 10px; min-height: 15px; font-weight: bold; }
+
+        /* MAIN APP */
+        #app-core { display: none; }
+        .top-nav { background-color: var(--bg-card); border-bottom: 1px solid var(--border); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .logo-area h1 { margin: 0; color: var(--blue-accent); font-size: 22px; font-weight: 800; }
+        .logo-area p { margin: 0; color: var(--text-muted); font-size: 12px; text-transform: uppercase; font-weight: 600; }
+        .nav-buttons { display: flex; gap: 12px; align-items: center; }
+        .nav-btn { background: transparent; color: var(--text-muted); border: 1px solid var(--border); padding: 10px 18px; border-radius: 25px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .nav-btn.active { background: var(--blue-accent); color: #ffffff; border-color: var(--blue-accent); }
+        .btn-export { background: transparent; color: var(--green-btn); border: 1px solid var(--green-btn); padding: 10px 18px; border-radius: 25px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .user-badge { background: var(--bg-dark); border: 1px solid var(--border); padding: 8px 18px; border-radius: 25px; font-weight: bold; font-size: 13px; display: flex; gap: 10px; align-items: center; }
+        .btn-logout { background: transparent; border: none; color: #e53e3e; font-weight: bold; cursor: pointer; font-size: 12px; }
+
+        /* TABS & CARDS */
+        .tab-content { display: none; padding: 30px; max-width: 1550px; margin: 0 auto; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .container-flex { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+        .card { flex: 1; min-width: 320px; background: var(--bg-card); padding: 25px; border-radius: 18px; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        .card.highlight { border-color: var(--border-hover); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); }
+        .col-left { flex: 0 0 350px; }
+        .col-main { flex: 1; min-width: 600px; }
+        h2 { margin-top: 0; color: var(--blue-accent); border-bottom: 2px solid var(--border); padding-bottom: 10px; font-size: 18px; text-transform: uppercase; }
+        h3.section-subtitle { font-size: 12px; color: var(--blue-accent); text-transform: uppercase; margin: 20px 0 10px 0; font-weight: 700; }
+
+        /* FORMS & LISTS */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        .input-group label { font-size: 12px; color: var(--text-muted); font-weight: bold; }
+        .input-group input, .input-group select { padding: 12px 15px; border: 1px solid var(--border); background: var(--bg-input); border-radius: 10px; outline: none; font-size: 14px; }
+        .btn-primary { background: var(--blue-accent); color: #fff; border: none; padding: 12px 25px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; }
+        .search-add-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .search-add-group input { flex: 1; padding: 12px; border-radius: 25px; border: 1px solid var(--border); outline: none; }
+        .search-add-group button { padding: 10px 20px; border-radius: 25px; border: none; background: var(--blue-accent); color: #fff; font-weight: bold; cursor: pointer; }
+        .list { list-style: none; padding: 0; margin: 0; }
+        .list-item, .list-item-task { background: var(--bg-dark); border: 1px solid var(--border); padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; border-radius: 14px; margin-bottom: 8px; cursor: pointer; }
+        .list-item.selected { border-color: var(--blue-accent); color: var(--blue-accent); font-weight: bold; background: #eef2f7; }
+        .list.has-selection .list-item:not(.selected) { opacity: 0.5; }
+        .checkbox-container { display: flex; align-items: center; flex: 1; cursor: pointer; }
+        .checkbox-container input { margin-right: 12px; accent-color: var(--blue-accent); width: 16px; height: 16px; }
+        .task-text.done { text-decoration: line-through; color: var(--text-muted); }
+        .btn-delete { background: var(--border); color: #e53e3e; border: none; padding: 6px 12px; border-radius: 15px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .client-tag { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: bold; margin-right: 8px; background: var(--blue-accent); color: #fff; }
+        .scroll-list { height: 350px; overflow-y: auto; padding-right: 5px; }
+        .scroll-list-small { height: 180px; overflow-y: auto; padding-right: 5px; }
+
+        /* TIMELINE & PRODUCTS */
+        .timeline-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 15px; }
+        .timeline-card { background: var(--bg-dark); border: 1px solid var(--border); padding: 15px; border-radius: 12px; text-align: center; }
+        .timeline-card .icon { font-size: 24px; margin-bottom: 10px; display: block; }
+        .timeline-card h4 { margin: 0 0 10px 0; font-size: 13px; color: var(--blue-accent); }
+        .timeline-card select, .timeline-card input { width: 100%; margin-bottom: 8px; padding: 8px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border); box-sizing: border-box; }
+        .products-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+        .product-card { background: var(--bg-dark); border: 1px solid var(--border); padding: 12px; border-radius: 10px; display: flex; flex-direction: column; gap: 5px; }
+        .product-card label { font-size: 11px; font-weight: bold; text-align: center; margin-bottom: 3px; }
+        .product-card select, .product-card input { padding: 6px; font-size: 11px; border-radius: 6px; border: 1px solid var(--border); width: 100%; box-sizing: border-box; }
+        
+        .status-contratado { background-color: #c6f6d5 !important; color: #22543d !important; border-color: #81e6d9; }
+        .status-potencial { background-color: #feebc8 !important; color: #744210 !important; border-color: #fbd38d; }
+        .status-nao-potencial { background-color: #edf2f7 !important; color: #4a5568 !important; }
+        .status-em-aberto { background-color: #ebf8ff !important; color: #2b6cb0 !important; }
+        .status-nao-contratado { background-color: #fed7d7 !important; color: #742a2a !important; }
+        .status-default { background-color: var(--bg-card); color: var(--text-muted); }
+    </style>
+</head>
+<body>
+
+<div id="auth-screen">
+    <div class="auth-card">
+        <h1>W1 CRM</h1>
+        <p>Acesso exclusivo para Consultores</p>
+        <input type="email" id="auth-email" placeholder="Seu e-mail profissional">
+        <input type="password" id="auth-password" placeholder="Sua senha (mínimo 6 caracteres)">
+        <button class="btn-login" onclick="handleLogin()">Entrar no Sistema</button>
+        <button class="btn-signup" onclick="handleSignup()">Criar Nova Conta</button>
+        <div id="auth-msg"></div>
+    </div>
+</div>
+
+<div id="app-core">
+    <nav class="top-nav">
+        <div class="logo-area">
+            <h1>Controle de Clientes</h1>
+            <p>Planejamento & Gestão Patrimonial</p>
+        </div>
+        <div class="nav-buttons">
+            <button class="nav-btn active" onclick="switchTab('tab-capa')">👤 Capa & Cadastro</button>
+            <button class="nav-btn" onclick="switchTab('tab-tarefas')">⚡ Gestão de Tarefas</button>
+            <button class="nav-btn" onclick="switchTab('tab-entregas')">📊 Entregas e Produtos</button>
+            <button class="btn-export" onclick="exportToCSV()">📥 Exportar Base (CSV)</button>
+        </div>
+        <div class="user-badge">
+            <span id="user-display-name">Carregando...</span>
+            <button class="btn-logout" onclick="handleLogout()">Sair</button>
+        </div>
+    </nav>
+
+    <div id="tab-capa" class="tab-content active">
+        <div class="container-flex">
+            <div class="card col-left">
+                <h2>Novo Cliente</h2>
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label>Nome Completo do Cliente</label>
+                    <input type="text" id="newClientName" placeholder="Ex: João da Silva..." onkeydown="if(event.key==='Enter') createNewClient()">
+                </div>
+                <button class="btn-primary" onclick="createNewClient()">Cadastrar Cliente</button>
+            </div>
+            <div class="card col-main highlight">
+                <h2>Ficha de Conexão (Raio-X)</h2>
+                <div class="search-add-group">
+                    <select id="selectCapaClient" style="flex:1; padding:12px; border-radius:10px; border:1px solid var(--border);" onchange="loadCapaData()">
+                        <option value="">-- Selecione um cliente para editar a ficha --</option>
+                    </select>
+                </div>
+                <div id="capaFormArea" style="display: none; margin-top: 20px;">
+                    <div class="form-grid">
+                        <div class="input-group"><label>1. Como gosta de ser chamado?</label><input type="text" id="capa_apelido" oninput="saveCapaData()"></div>
+                        <div class="input-group"><label>2. Contato / Instagram</label><input type="text" id="capa_contato" oninput="saveCapaData()"></div>
+                        <div class="input-group"><label>3. Ocupação / Background</label><input type="text" id="capa_ocupacao" oninput="saveCapaData()"></div>
+                        <div class="input-group"><label>4. Estrutura Familiar</label><input type="text" id="capa_familia" oninput="saveCapaData()"></div>
+                        <div class="input-group"><label>5. Maior Sonho / Objetivo</label><input type="text" id="capa_sonho" oninput="saveCapaData()"></div>
+                        <div class="input-group"><label>6. Principal Dor / Medo</label><input type="text" id="capa_dor" oninput="saveCapaData()"></div>
+                        <div class="input-group"><label>7. Hobbies / Tempo Livre</label><input type="text" id="capa_hobbies" oninput="saveCapaData()"></div>
+                        <div class="input-group"><label>8. Padrão de Vida Estimado</label><input type="text" id="capa_padrao" oninput="saveCapaData()"></div>
+                        <div class="input-group"><label>9. Perfil do Investidor</label>
+                            <select id="capa_perfil" onchange="saveCapaData()"><option value="">Selecione...</option><option value="Conservador">Conservador</option><option value="Moderado">Moderado</option><option value="Agressivo">Agressivo</option></select>
+                        </div>
+                        <div class="input-group"><label>10. Origem (Como chegou?)</label><input type="text" id="capa_origem" oninput="saveCapaData()"></div>
+                    </div>
+                </div>
+                <p id="capaEmptyMsg" style="text-align: center; color: var(--text-muted); margin-top: 40px;">Nenhum cliente selecionado.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-tarefas" class="tab-content">
+        <div class="container-flex">
+            <div class="card" style="flex: 0 0 320px;">
+                <h2>Clientes</h2>
+                <div class="search-add-group"><input type="text" id="searchInput" placeholder="🔍 Buscar cliente..." oninput="renderTasksTab()"></div>
+                <div class="scroll-list"><ul id="taskClientList" class="list"></ul></div>
+            </div>
+            <div class="card">
+                <h2 id="taskTitle">Tarefas (Filtro)</h2>
+                <div class="search-add-group" id="taskFormGroup" style="display: none;">
+                    <input type="text" id="taskInput" placeholder="Nova tarefa..." onkeydown="if(event.key==='Enter') addTask()">
+                    <button onclick="addTask()">Add</button>
+                </div>
+                <h3 class="section-subtitle">⚡ Pendentes</h3><div class="scroll-list-small"><ul id="pendingTaskList" class="list"></ul></div>
+                <h3 class="section-subtitle">✓ Concluídas</h3><div class="scroll-list-small" style="height: 120px;"><ul id="completedTaskList" class="list"></ul></div>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 20px;">
+                <div class="card highlight"><h2>⚡ Pendentes (Geral)</h2><div class="scroll-list-small"><ul id="genPendingList" class="list"></ul></div></div>
+                <div class="card highlight"><h2>✓ Concluídas (Geral)</h2><div class="scroll-list-small"><ul id="genCompletedList" class="list"></ul></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-entregas" class="tab-content">
+        <div class="container-flex">
+            <div class="card col-left">
+                <h2>Selecione o Cliente</h2>
+                <div class="search-add-group"><input type="text" id="searchEntregasInput" placeholder="🔍 Buscar..." oninput="renderEntregasList()"></div>
+                <div class="scroll-list" style="height: 550px;"><ul id="entregasClientList" class="list"></ul></div>
+            </div>
+            <div class="card col-main highlight">
+                <h2 id="entregasHeaderTitle">Painel de Entregas e Produtos</h2>
+                <div id="entregasArea" style="display: none;">
+                    <div class="form-grid" style="grid-template-columns: repeat(6, 1fr); gap: 10px;">
+                        <div class="input-group"><label>Valor da AP (R$)</label><input type="text" id="ent_apValue" oninput="saveEntregasData()"></div>
+                        <div class="input-group"><label>Forma Pagamento</label>
+                            <select id="ent_payment" onchange="saveEntregasData()">
+                                <option value="">Selecione</option><option value="1x à vista">1x à vista</option><option value="PIX">PIX</option><option value="2x">2x</option><option value="3x">3x</option><option value="4x">4x</option><option value="5x">5x</option><option value="6x">6x</option><option value="7x">7x</option><option value="8x">8x</option><option value="9x">9x</option><option value="10x">10x</option><option value="11x">11x</option><option value="12x">12x</option>
+                            </select>
+                        </div>
+                        <div class="input-group"><label>Data da AP</label><input type="date" id="ent_apDate" onchange="saveEntregasData()"></div>
+                        <div class="input-group"><label>Modelo FUP</label>
+                            <select id="ent_fup" onchange="saveEntregasData()">
+                                <option value="">Selecione</option><option value="Sem FUP">Sem FUP</option><option value="Standard - 149,90">Standard (149,90)</option><option value="Premium - 199,90">Premium (199,90)</option><option value="Infinity - 349,90">Infinity (349,90)</option><option value="Private - 649,90">Private (649,90)</option>
+                            </select>
+                        </div>
+                        <div class="input-group"><label>Fluxo</label><select id="ent_fluxo" onchange="saveEntregasData()"><option value="">Selecione</option><option value="Estrutura">Estrutura</option><option value="Manutenção">Manutenção</option></select></div>
+                        <div class="input-group"><label>Status Geral</label><select id="ent_status" onchange="saveEntregasData()"><option value="">Selecione</option><option value="Concluído">Concluído</option><option value="Em andamento">Em andamento</option><option value="Inativo">Inativo</option></select></div>
+                    </div>
+                    <h3 class="section-subtitle">Timeline de Consultoria</h3>
+                    <div class="timeline-grid">
+                        <div class="timeline-card"><span class="icon">📊</span><h4>C1 - Fluxo</h4><select id="ent_c1Status" onchange="saveEntregasData()"><option value="">Status...</option><option value="Feito BP">Feito BP</option><option value="Feito Líder">Feito Líder</option><option value="Feito CaaS">Feito CaaS</option></select><input type="date" id="ent_c1Date" onchange="saveEntregasData()"></div>
+                        <div class="timeline-card"><span class="icon">🛡️</span><h4>C2 - Blindagem</h4><select id="ent_c2Status" onchange="saveEntregasData()"><option value="">Status...</option><option value="Feito BP">Feito BP</option><option value="Feito Líder">Feito Líder</option><option value="Feito CaaS">Feito CaaS</option></select><input type="date" id="ent_c2Date" onchange="saveEntregasData()"></div>
+                        <div class="timeline-card"><span class="icon">📈</span><h4>C3 - Invest.</h4><select id="ent_c3Status" onchange="saveEntregasData()"><option value="">Status...</option><option value="Feito BP">Feito BP</option><option value="Feito Líder">Feito Líder</option><option value="Feito CaaS">Feito CaaS</option></select><input type="date" id="ent_c3Date" onchange="saveEntregasData()"></div>
+                        <div class="timeline-card"><span class="icon">🚀</span><h4>C4 - Crescim.</h4><select id="ent_c4Status" onchange="saveEntregasData()"><option value="">Status...</option><option value="Feito BP">Feito BP</option><option value="Feito Líder">Feito Líder</option><option value="Feito CaaS">Feito CaaS</option></select><input type="date" id="ent_c4Date" onchange="saveEntregasData()"></div>
+                    </div>
+                    <h3 class="section-subtitle">Matriz de Produtos</h3>
+                    <div class="products-grid" id="productsGridArea"></div>
+                </div>
+                <p id="entregasEmptyMsg" style="text-align: center; color: var(--text-muted); margin-top: 100px;">Selecione um cliente ao lado para gerenciar suas entregas.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const supabaseUrl = 'https://nkosmdmfoashanpdvnhc.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5rb3NtZG1mb2FzaGFucGR2bmhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mzk1MzEsImV4cCI6MjA5NzIxNTUzMX0.FcV_Tqs81y4rIbZuP0ejCn5zx3DVQ62dE-dauAIp4S8';
+    const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+    let clients = [];
+    let selectedTaskClient = null;
+    let selectedEntregasClient = null;
+
+    const productList = [
+        { id: 'p_seguro', name: 'Seguro de Vida' }, { id: 'p_prev', name: 'Previdência' },
+        { id: 'p_imovel', name: 'Aquis. Imóvel' }, { id: 'p_auto', name: 'Aquis. Auto' },
+        { id: 'p_saude', name: 'Plano de Saúde' }, { id: 'p_rc', name: 'Resp. Civil' },
+        { id: 'p_resid', name: 'Seg. Residencial' }, { id: 'p_segauto', name: 'Seg. Auto' },
+        { id: 'p_patrim', name: 'Patrimonial' }, { id: 'p_business', name: 'Business' }
+    ];
+
+    const authScreen = document.getElementById('auth-screen');
+    const appCore = document.getElementById('app-core');
+    const authMsg = document.getElementById('auth-msg');
+
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (session) {
+            authScreen.style.display = 'none';
+            appCore.style.display = 'block';
+            document.getElementById('user-display-name').innerText = session.user.email;
+            fetchClientsFromDB();
+        } else {
+            authScreen.style.display = 'flex';
+            appCore.style.display = 'none';
+        }
+    });
+
+    async function handleSignup() {
+        const email = document.getElementById('auth-email').value;
+        const password = document.getElementById('auth-password').value;
+        authMsg.innerText = "Criando conta...";
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        if (error) { 
+            authMsg.innerText = "Erro: " + error.message; 
+            return; 
+        }
+        authMsg.innerText = "Conta criada com sucesso! Tentando logar...";
+        handleLogin(); // Tenta logar imediatamente após criar
+    }
+
+    async function handleLogin() {
+        const email = document.getElementById('auth-email').value;
+        const password = document.getElementById('auth-password').value;
+        authMsg.innerText = "Acessando...";
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) { 
+            authMsg.innerText = "Erro: " + error.message + " (Verifique a senha ou se a conta já existe)"; 
+        }
+    }
+
+    async function handleLogout() {
+        await supabaseClient.auth.signOut();
+        clients = []; 
+    }
+
+    async function fetchClientsFromDB() {
+        const { data, error } = await supabaseClient.from('clientes').select('*').order('created_at', { ascending: true });
+        if (data) {
+            clients = data.map(d => ({
+                id: d.id, name: d.nome, info: d.info || {}, tasks: d.tarefas || [], deliveries: d.deliveries || {}, products: d.products || {}
+            }));
+            updateAllViews();
+        }
+    }
+
+    async function updateClientInDB(index) {
+        const c = clients[index];
+        if(!c || !c.id) return;
+        await supabaseClient.from('clientes').update({
+            info: c.info, tarefas: c.tasks, deliveries: c.deliveries, products: c.products
+        }).eq('id', c.id);
+    }
+
+    async function createNewClient() {
+        const input = document.getElementById('newClientName');
+        const name = input.value.trim();
+        if (!name) return;
+        
+        const { data: authData } = await supabaseClient.auth.getUser();
+        if (!authData.user) {
+            alert("Sua sessão expirou. Por favor, faça login novamente.");
+            handleLogout();
+            return;
+        }
+
+        const { data, error } = await supabaseClient.from('clientes').insert([
+            { nome: name, user_id: authData.user.id }
+        ]).select();
+        
+        if (error) {
+            alert("Erro do Banco de Dados: " + error.message);
+            return;
+        }
+
+        if (data && data.length > 0) {
+            const newClient = data[0];
+            clients.push({ id: newClient.id, name: newClient.nome, tasks: [], info: {}, deliveries: {}, products: {} });
+            input.value = '';
+            updateAllViews();
+            alert('Cliente cadastrado na nuvem com sucesso!');
+        }
+    }
+
+    async function deleteClient(i, e) {
+        e.stopPropagation();
+        if(confirm(`Remover cliente e todos os dados definitivamente da nuvem?`)) {
+            const clientId = clients[i].id;
+            const { error } = await supabaseClient.from('clientes').delete().eq('id', clientId);
+            if(!error) {
+                clients.splice(i, 1);
+                if(selectedTaskClient === i) selectedTaskClient = null;
+                if(selectedEntregasClient === i) selectedEntregasClient = null;
+                updateAllViews();
+            } else {
+                alert("Erro ao deletar: " + error.message);
+            }
+        }
+    }
+
+    function updateAllViews() { populateCapaSelect(); renderTasksTab(); renderGeneralTasks(); renderEntregasList(); }
+    function getShortName(name) { return name ? name.split(' ')[0] : "Cliente"; }
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        if (event && event.target && event.target.classList.contains('nav-btn')) { event.target.classList.add('active'); }
+        updateAllViews();
+    }
+
+    function populateCapaSelect() {
+        const select = document.getElementById('selectCapaClient');
+        select.innerHTML = '<option value="">-- Selecione um cliente para editar a ficha --</option>';
+        clients.forEach((c, i) => { select.innerHTML += `<option value="${i}">${c.name}</option>`; });
+    }
+
+    function loadCapaData() {
+        const idx = document.getElementById('selectCapaClient').value;
+        const form = document.getElementById('capaFormArea'); const msg = document.getElementById('capaEmptyMsg');
+        if(idx === "") { form.style.display = 'none'; msg.style.display = 'block'; return; }
+        form.style.display = 'block'; msg.style.display = 'none';
+        const info = clients[idx].info;
+        document.getElementById('capa_apelido').value = info.apelido || ''; document.getElementById('capa_contato').value = info.contato || '';
+        document.getElementById('capa_ocupacao').value = info.ocupacao || ''; document.getElementById('capa_familia').value = info.familia || '';
+        document.getElementById('capa_sonho').value = info.sonho || ''; document.getElementById('capa_dor').value = info.dor || '';
+        document.getElementById('capa_hobbies').value = info.hobbies || ''; document.getElementById('capa_padrao').value = info.padrao || '';
+        document.getElementById('capa_perfil').value = info.perfil || ''; document.getElementById('capa_origem').value = info.origem || '';
+    }
+
+    function saveCapaData() {
+        const idx = document.getElementById('selectCapaClient').value; if(idx === "") return;
+        clients[idx].info = { apelido: document.getElementById('capa_apelido').value, contato: document.getElementById('capa_contato').value, ocupacao: document.getElementById('capa_ocupacao').value, familia: document.getElementById('capa_familia').value, sonho: document.getElementById('capa_sonho').value, dor: document.getElementById('capa_dor').value, hobbies: document.getElementById('capa_hobbies').value, padrao: document.getElementById('capa_padrao').value, perfil: document.getElementById('capa_perfil').value, origem: document.getElementById('capa_origem').value };
+        updateClientInDB(idx);
+    }
+
+    function selectTaskClient(i) { selectedTaskClient = (selectedTaskClient === i) ? null : i; renderTasksTab(); }
+    function addTask() {
+        const input = document.getElementById('taskInput');
+        if(!input.value.trim() || selectedTaskClient === null) return;
+        clients[selectedTaskClient].tasks.unshift({ text: input.value.trim(), done: false });
+        input.value = ''; updateClientInDB(selectedTaskClient); renderTasksTab(); renderGeneralTasks();
+    }
+    function toggleTask(tIdx, isGen=false, cIdx=null) {
+        const idx = isGen ? cIdx : selectedTaskClient;
+        clients[idx].tasks[tIdx].done = !clients[idx].tasks[tIdx].done;
+        updateClientInDB(idx); renderTasksTab(); renderGeneralTasks();
+    }
+    function delTask(tIdx, e) {
+        e.stopPropagation(); clients[selectedTaskClient].tasks.splice(tIdx, 1);
+        updateClientInDB(selectedTaskClient); renderTasksTab(); renderGeneralTasks();
+    }
+
+    function renderTasksTab() {
+        const list = document.getElementById('taskClientList'); const search = document.getElementById('searchInput').value.toLowerCase();
+        list.innerHTML = ''; list.className = selectedTaskClient !== null ? 'list has-selection' : 'list';
+        clients.forEach((c, i) => {
+            if(search && !c.name.toLowerCase().includes(search)) return;
+            const li = document.createElement('li'); li.className = `list-item ${selectedTaskClient === i ? 'selected' : ''}`;
+            li.onclick = () => selectTaskClient(i); li.innerHTML = `<span>${c.name}</span><button class="btn-delete" onclick="deleteClient(${i},event)">X</button>`; list.appendChild(li);
+        });
+        const pList = document.getElementById('pendingTaskList'); const cList = document.getElementById('completedTaskList');
+        const form = document.getElementById('taskFormGroup'); pList.innerHTML = ''; cList.innerHTML = '';
+        if(selectedTaskClient === null) { form.style.display = 'none'; document.getElementById('taskTitle').innerText = 'Tarefas'; return; }
+        form.style.display = 'flex'; document.getElementById('taskTitle').innerText = `Tarefas: ${getShortName(clients[selectedTaskClient].name)}`;
+        clients[selectedTaskClient].tasks.forEach((t, i) => {
+            const li = document.createElement('li'); li.className = `list-item-task ${t.done ? 'completed-item' : ''}`;
+            li.innerHTML = `<label class="checkbox-container"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${i})"><span class="task-text ${t.done?'done':''}">${t.text}</span></label><button class="btn-delete" onclick="delTask(${i},event)">X</button>`;
+            t.done ? cList.appendChild(li) : pList.appendChild(li);
+        });
+    }
+
+    function renderGeneralTasks() {
+        const pList = document.getElementById('genPendingList'); const cList = document.getElementById('genCompletedList');
+        pList.innerHTML = ''; cList.innerHTML = '';
+        clients.forEach((c, cIdx) => {
+            if(!c.tasks) c.tasks = [];
+            c.tasks.forEach((t, tIdx) => {
+                const li = document.createElement('li'); li.className = `list-item-task ${t.done ? 'completed-item' : ''}`;
+                li.innerHTML = `<label class="checkbox-container"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${tIdx}, true, ${cIdx})"><span class="task-text ${t.done?'done':''}"><span class="client-tag">${getShortName(c.name)}</span> ${t.text}</span></label>`;
+                t.done ? cList.appendChild(li) : pList.appendChild(li);
+            });
+        });
+    }
+
+    function buildProductsGrid() {
+        const area = document.getElementById('productsGridArea'); area.innerHTML = '';
+        productList.forEach(p => {
+            let extraFields = '';
+            if (p.id === 'p_seguro') extraFields = `<select id="p_seguro_company" onchange="saveEntregasData()"><option value="">Seguradora...</option><option value="Prudential">Prudential</option><option value="Metlife">Metlife</option><option value="Icatu">Icatu</option><option value="MAG">MAG</option></select><input type="text" id="p_seguro_value" placeholder="Prêmio R$" oninput="saveEntregasData()">`;
+            else if (p.id === 'p_prev') extraFields = `<select id="p_prev_type" onchange="saveEntregasData()"><option value="">Tipo...</option><option value="PGBL">PGBL</option><option value="VGBL">VGBL</option></select><input type="text" id="p_prev_value" placeholder="Aporte R$" oninput="saveEntregasData()">`;
+            else if (p.id === 'p_imovel' || p.id === 'p_auto') extraFields = `<select id="${p.id}_company" onchange="saveEntregasData()"><option value="">Empresa...</option><option value="Porto">Porto</option><option value="Embracon">Embracon</option><option value="Klubi">Klubi</option><option value="Banco do Brasil">BB</option><option value="Magalu">Magalu</option></select><input type="text" id="${p.id}_value" placeholder="Crédito R$" oninput="saveEntregasData()">`;
+
+            area.innerHTML += `<div class="product-card"><label>${p.name}</label><select id="${p.id}" class="status-default" onchange="updateProductColor(this); saveEntregasData();"><option value="Em aberto">Em aberto</option><option value="Contratado">Contratado</option><option value="Potencial">Potencial</option><option value="Não Potencial">Não Potencial</option><option value="Não contratado">Não contratado</option></select>${extraFields}</div>`;
+        });
+    }
+
+    function updateProductColor(selectElement) {
+        selectElement.className = ''; const val = selectElement.value;
+        if(val === 'Contratado') selectElement.classList.add('status-contratado');
+        else if(val === 'Potencial') selectElement.classList.add('status-potencial');
+        else if(val === 'Não Potencial') selectElement.classList.add('status-nao-potencial');
+        else if(val === 'Em aberto') selectElement.classList.add('status-em-aberto');
+        else if(val === 'Não contratado') selectElement.classList.add('status-nao-contratado');
+        else selectElement.classList.add('status-default');
+    }
+
+    function selectEntregasClient(i) { selectedEntregasClient = i; renderEntregasList(); loadEntregasData(); }
+    function renderEntregasList() {
+        const list = document.getElementById('entregasClientList'); const search = document.getElementById('searchEntregasInput').value.toLowerCase();
+        list.innerHTML = ''; list.className = selectedEntregasClient !== null ? 'list has-selection' : 'list';
+        clients.forEach((c, i) => {
+            if(search && !c.name.toLowerCase().includes(search)) return;
+            const li = document.createElement('li'); li.className = `list-item static-item ${selectedEntregasClient === i ? 'selected' : ''}`;
+            li.onclick = () => selectEntregasClient(i); li.innerHTML = `<span>${c.name}</span>`; list.appendChild(li);
+        });
+    }
+
+    function loadEntregasData() {
+        const area = document.getElementById('entregasArea'); const msg = document.getElementById('entregasEmptyMsg'); const title = document.getElementById('entregasHeaderTitle');
+        if(selectedEntregasClient === null) { area.style.display = 'none'; msg.style.display = 'block'; title.innerText = 'Painel de Entregas e Produtos'; return; }
+        area.style.display = 'block'; msg.style.display = 'none'; title.innerText = `Painel: ${clients[selectedEntregasClient].name}`;
+        
+        const d = clients[selectedEntregasClient].deliveries || {};
+        document.getElementById('ent_apValue').value = d.apValue || ''; document.getElementById('ent_payment').value = d.payment || '';
+        document.getElementById('ent_apDate').value = d.apDate || ''; document.getElementById('ent_fup').value = d.fup || '';
+        document.getElementById('ent_fluxo').value = d.fluxo || ''; document.getElementById('ent_status').value = d.status || '';
+        document.getElementById('ent_c1Status').value = d.c1Status || ''; document.getElementById('ent_c1Date').value = d.c1Date || '';
+        document.getElementById('ent_c2Status').value = d.c2Status || ''; document.getElementById('ent_c2Date').value = d.c2Date || '';
+        document.getElementById('ent_c3Status').value = d.c3Status || ''; document.getElementById('ent_c3Date').value = d.c3Date || '';
+        document.getElementById('ent_c4Status').value = d.c4Status || ''; document.getElementById('ent_c4Date').value = d.c4Date || '';
+
+        const p = clients[selectedEntregasClient].products || {};
+        productList.forEach(prod => { const el = document.getElementById(prod.id); if(el) { el.value = p[prod.id] || 'Em aberto'; updateProductColor(el); } });
+        if (document.getElementById('p_seguro_company')) document.getElementById('p_seguro_company').value = p['p_seguro_company'] || '';
+        if (document.getElementById('p_seguro_value')) document.getElementById('p_seguro_value').value = p['p_seguro_value'] || '';
+        if (document.getElementById('p_prev_type')) document.getElementById('p_prev_type').value = p['p_prev_type'] || '';
+        if (document.getElementById('p_prev_value')) document.getElementById('p_prev_value').value = p['p_prev_value'] || '';
+        if (document.getElementById('p_imovel_company')) document.getElementById('p_imovel_company').value = p['p_imovel_company'] || '';
+        if (document.getElementById('p_imovel_value')) document.getElementById('p_imovel_value').value = p['p_imovel_value'] || '';
+        if (document.getElementById('p_auto_company')) document.getElementById('p_auto_company').value = p['p_auto_company'] || '';
+        if (document.getElementById('p_auto_value')) document.getElementById('p_auto_value').value = p['p_auto_value'] || '';
+    }
+
+    function saveEntregasData() {
+        if(selectedEntregasClient === null) return;
+        clients[selectedEntregasClient].deliveries = { apValue: document.getElementById('ent_apValue').value, payment: document.getElementById('ent_payment').value, apDate: document.getElementById('ent_apDate').value, fup: document.getElementById('ent_fup').value, fluxo: document.getElementById('ent_fluxo').value, status: document.getElementById('ent_status').value, c1Status: document.getElementById('ent_c1Status').value, c1Date: document.getElementById('ent_c1Date').value, c2Status: document.getElementById('ent_c2Status').value, c2Date: document.getElementById('ent_c2Date').value, c3Status: document.getElementById('ent_c3Status').value, c3Date: document.getElementById('ent_c3Date').value, c4Status: document.getElementById('ent_c4Status').value, c4Date: document.getElementById('ent_c4Date').value };
+        const pData = {};
+        productList.forEach(prod => { const el = document.getElementById(prod.id); if(el) pData[prod.id] = el.value; });
+        if (document.getElementById('p_seguro_company')) pData['p_seguro_company'] = document.getElementById('p_seguro_company').value;
+        if (document.getElementById('p_seguro_value')) pData['p_seguro_value'] = document.getElementById('p_seguro_value').value;
+        if (document.getElementById('p_prev_type')) pData['p_prev_type'] = document.getElementById('p_prev_type').value;
+        if (document.getElementById('p_prev_value')) pData['p_prev_value'] = document.getElementById('p_prev_value').value;
+        if (document.getElementById('p_imovel_company')) pData['p_imovel_company'] = document.getElementById('p_imovel_company').value;
+        if (document.getElementById('p_imovel_value')) pData['p_imovel_value'] = document.getElementById('p_imovel_value').value;
+        if (document.getElementById('p_auto_company')) pData['p_auto_company'] = document.getElementById('p_auto_company').value;
+        if (document.getElementById('p_auto_value')) pData['p_auto_value'] = document.getElementById('p_auto_value').value;
+        
+        clients[selectedEntregasClient].products = pData;
+        updateClientInDB(selectedEntregasClient);
+    }
+
+    function exportToCSV() {
+        if (clients.length === 0) { alert("Nenhum cliente cadastrado."); return; }
+        let csv = "\uFEFF"; 
+        let headers = ["Nome", "Apelido", "Contato", "Ocupação", "Família", "Sonho", "Dor", "Hobbies", "Padrão", "Perfil", "Origem", "AP(R$)", "Pgto", "Data AP", "FUP", "Fluxo", "Status", "C1", "D-C1", "C2", "D-C2", "C3", "D-C3", "C4", "D-C4", "Pendentes", "Concluídas"];
+        productList.forEach(p => { headers.push(`${p.name}`); if(p.id==='p_seguro'){headers.push("Seg", "Premio");} if(p.id==='p_prev'){headers.push("Tipo", "Aporte");} if(p.id==='p_imovel'||p.id==='p_auto'){headers.push("Consorcio", "Credito");} });
+        csv += headers.map(h => `"${h.replace(/"/g, '""')}"`).join(";") + "\n";
+        clients.forEach(c => {
+            let info = c.info || {}; let del = c.deliveries || {}; let prod = c.products || {}; let tasks = c.tasks || [];
+            let pendentes = tasks.filter(t => !t.done).map(t => t.text).join(" | "); let concluidas = tasks.filter(t => t.done).map(t => t.text).join(" | ");
+            let row = [c.name||"", info.apelido||"", info.contato||"", info.ocupacao||"", info.familia||"", info.sonho||"", info.dor||"", info.hobbies||"", info.padrao||"", info.perfil||"", info.origem||"", del.apValue||"", del.payment||"", del.apDate||"", del.fup||"", del.fluxo||"", del.status||"", del.c1Status||"", del.c1Date||"", del.c2Status||"", del.c2Date||"", del.c3Status||"", del.c3Date||"", del.c4Status||"", del.c4Date||"", pendentes, concluidas];
+            productList.forEach(p => { row.push(prod[p.id]||"Em aberto"); if(p.id==='p_seguro'){row.push(prod['p_seguro_company']||"", prod['p_seguro_value']||"");} if(p.id==='p_prev'){row.push(prod['p_prev_type']||"", prod['p_prev_value']||"");} if(p.id==='p_imovel'){row.push(prod['p_imovel_company']||"", prod['p_imovel_value']||"");} if(p.id==='p_auto'){row.push(prod['p_auto_company']||"", prod['p_auto_value']||"");} });
+            csv += row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(";") + "\n";
+        });
+        let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); let link = document.createElement("a");
+        link.href = URL.createObjectURL(blob); link.setAttribute("download", "base_clientes.csv");
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
+
+    buildProductsGrid();
+</script>
+</body>
+</html>
